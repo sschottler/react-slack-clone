@@ -1,9 +1,12 @@
-import React, { Component } from 'react'
-import { Menu, Icon } from 'semantic-ui-react'
+import React from 'react'
 import firebase from '../../firebase'
+import { connect } from 'react-redux'
+import { setCurrentChannel, setPrivateChannel } from '../../actions'
+import { Menu, Icon } from 'semantic-ui-react'
 
-export class DirectMessages extends Component {
+class DirectMessages extends React.Component {
   state = {
+    activeChannel: '',
     user: this.props.currentUser,
     users: [],
     usersRef: firebase.database().ref('users'),
@@ -30,8 +33,6 @@ export class DirectMessages extends Component {
     })
 
     this.state.connectedRef.on('value', snap => {
-      console.log('connectedref event')
-
       if (snap.val() === true) {
         const ref = this.state.presenceRef.child(currentUserUid)
         ref.set(true)
@@ -50,8 +51,6 @@ export class DirectMessages extends Component {
     })
 
     this.state.presenceRef.on('child_removed', snap => {
-      console.log('presenceref removed')
-
       if (currentUserUid !== snap.key) {
         this.addStatusToUser(snap.key, false)
       }
@@ -70,8 +69,30 @@ export class DirectMessages extends Component {
 
   isUserOnline = user => user.status === 'online'
 
+  changeChannel = user => {
+    const channelId = this.getChannelId(user.uid)
+    const channelData = {
+      id: channelId,
+      name: user.name
+    }
+    this.props.setCurrentChannel(channelData)
+    this.props.setPrivateChannel(true)
+    this.setActiveChannel(user.uid)
+  }
+
+  getChannelId = userId => {
+    const currentUserId = this.state.user.uid
+    return userId < currentUserId
+      ? `${userId}/${currentUserId}`
+      : `${currentUserId}/${userId}`
+  }
+
+  setActiveChannel = userId => {
+    this.setState({ activeChannel: userId })
+  }
+
   render() {
-    const { users } = this.state
+    const { users, activeChannel } = this.state
 
     return (
       <Menu.Menu className="menu">
@@ -79,12 +100,13 @@ export class DirectMessages extends Component {
           <span>
             <Icon name="mail" /> DIRECT MESSAGES
           </span>{' '}
-          ({URLSearchParams.length})
+          ({users.length})
         </Menu.Item>
         {users.map(user => (
           <Menu.Item
             key={user.uid}
-            onClick={() => console.log(user)}
+            active={user.uid === activeChannel}
+            onClick={() => this.changeChannel(user)}
             style={{ opacity: 0.7, fontStyle: 'italic' }}>
             <Icon
               name="circle"
@@ -98,4 +120,7 @@ export class DirectMessages extends Component {
   }
 }
 
-export default DirectMessages
+export default connect(
+  null,
+  { setCurrentChannel, setPrivateChannel }
+)(DirectMessages)
