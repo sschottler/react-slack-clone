@@ -12,7 +12,10 @@ export class Messages extends Component {
     messagesLoading: true,
     channel: this.props.currentChannel,
     user: this.props.currentUser,
-    numUniqueUsers: ''
+    numUniqueUsers: '',
+    searchTerm: '',
+    searchLoading: false,
+    searchResults: []
   }
 
   componentDidMount() {
@@ -35,6 +38,24 @@ export class Messages extends Component {
 
       this.countUniqueUsers(loadedMessages)
     })
+  }
+
+  handleSearchChange = event => {
+    this.setState({ searchTerm: event.target.value, searchLoading: true }, () =>
+      this.handleSearchMessages()
+    )
+  }
+
+  handleSearchMessages = () => {
+    const channelMessages = [...this.state.messages]
+    const regex = new RegExp(this.state.searchTerm, 'gi')
+    const searchResults = channelMessages.filter(
+      message =>
+        (message.content && message.content.match(regex)) ||
+        message.user.name.match(regex)
+    )
+    this.setState({ searchResults })
+    setTimeout(() => this.setState({ searchLoading: false }), 1000)
   }
 
   countUniqueUsers = messages => {
@@ -62,18 +83,31 @@ export class Messages extends Component {
   displayChannelName = channel => (channel ? `#${channel.name}` : '')
 
   render() {
-    const { messagesRef, messages, channel, user, numUniqueUsers } = this.state
+    const {
+      messagesRef,
+      messages,
+      searchLoading,
+      searchTerm,
+      searchResults,
+      channel,
+      user,
+      numUniqueUsers
+    } = this.state
 
     return (
       <React.Fragment>
         <MessagesHeader
           channelName={this.displayChannelName(channel)}
+          searchLoading={searchLoading}
           numUniqueUsers={numUniqueUsers}
+          handleSearchChange={this.handleSearchChange}
         />
 
         <Segment>
           <Comment.Group className="messages">
-            {this.displayMessages(messages)}
+            {searchTerm
+              ? this.displayMessages(searchResults)
+              : this.displayMessages(messages)}
           </Comment.Group>
         </Segment>
 
