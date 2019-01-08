@@ -1,14 +1,15 @@
-import React, { Component } from 'react'
+import React from 'react'
 import { Segment, Comment } from 'semantic-ui-react'
 import { connect } from 'react-redux'
+import { setUserPosts } from '../../actions'
+import firebase from '../../firebase'
+
 import MessagesHeader from './MessagesHeader'
 import MessageForm from './MessageForm'
 import Message from './Message'
 import Typing from './Typing'
-import firebase from '../../firebase'
-import { setUserPosts } from '../../actions'
 
-export class Messages extends Component {
+class Messages extends React.Component {
   state = {
     privateChannel: this.props.isPrivateChannel,
     privateMessagesRef: firebase.database().ref('privateMessages'),
@@ -22,7 +23,10 @@ export class Messages extends Component {
     numUniqueUsers: '',
     searchTerm: '',
     searchLoading: false,
-    searchResults: []
+    searchResults: [],
+    typingRef: firebase.database().ref('typing'),
+    typingUsers: [],
+    connectedRef: firebase.database().ref('.info/connected')
   }
 
   componentDidMount() {
@@ -32,6 +36,60 @@ export class Messages extends Component {
       this.addListeners(channel.id)
       this.addUserStarsListener(channel.id, user.uid)
     }
+  }
+
+  addListeners = channelId => {
+    this.addMessageListener(channelId)
+    this.addTypingListeners(channelId)
+  }
+
+  addTypingListeners = channelId => {
+    let typingUsers = []
+    this.state.typingRef.child(channelId).on('child_added', snap => {
+      if (snap.key !== this.state.user.uid) {
+        typingUsers = typingUsers.concat({
+          id: snap.key,
+          name: snap.val()
+        })
+        this.setState({ typingUsers })
+      }
+    })
+
+    this.state.typingRef.child(channelId).on('child_removed', snap => {
+      const index = typingUsers.findIndex(user => user.id === snap.key)
+      if (index !== -1) {
+        typingUsers = typingUsers.filter(user => user.id !== snap.key)
+        this.setState({ typingUsers })
+      }
+    })
+
+    this.state.connectedRef.on('value', snap => {
+      if (snap.val() === true) {
+        this.state.typingRef
+          .child(channelId)
+          .child(this.state.user.uid)
+          .onDisconnect()
+          .remove(err => {
+            if (err !== null) {
+              console.error(err)
+            }
+          })
+      }
+    })
+  }
+
+  addMessageListener = channelId => {
+    let loadedMessages = []
+    const ref = this.getMessagesRef()
+    ref.child(channelId).on('child_added', snap => {
+      loadedMessages.push(snap.val())
+      this.setState({
+        messages: loadedMessages,
+        messagesLoading: false
+      })
+      this.countUniqueUsers(loadedMessages)
+      this.countUserPosts(loadedMessages)
+    })
   }
 
   addUserStarsListener = (channelId, userId) => {
@@ -46,22 +104,6 @@ export class Messages extends Component {
           this.setState({ isChannelStarred: prevStarred })
         }
       })
-  }
-  addListeners = channelId => {
-    this.addMessageListener(channelId)
-  }
-
-  addMessageListener = channelId => {
-    let loadedMessages = []
-    const ref = this.getMessagesRef()
-
-    ref.child(channelId).on('child_added', snap => {
-      loadedMessages.push(snap.val())
-      this.setState({ messages: loadedMessages, messagesLoading: false })
-
-      this.countUniqueUsers(loadedMessages)
-      this.countUserPosts(loadedMessages)
-    })
   }
 
   getMessagesRef = () => {
@@ -95,25 +137,35 @@ export class Messages extends Component {
         .child(`${this.state.user.uid}/starred`)
         .child(this.state.channel.id)
         .remove(err => {
-          if (err !== null) console.error(err)
+          if (err !== null) {
+            console.error(err)
+          }
         })
     }
   }
 
   handleSearchChange = event => {
-    this.setState({ searchTerm: event.target.value, searchLoading: true }, () =>
-      this.handleSearchMessages()
+    this.setState(
+      {
+        searchTerm: event.target.value,
+        searchLoading: true
+      },
+      () => this.handleSearchMessages()
     )
   }
 
   handleSearchMessages = () => {
     const channelMessages = [...this.state.messages]
     const regex = new RegExp(this.state.searchTerm, 'gi')
-    const searchResults = channelMessages.filter(
-      message =>
+    const searchResults = channelMessages.reduce((acc, message) => {
+      if (
         (message.content && message.content.match(regex)) ||
         message.user.name.match(regex)
-    )
+      ) {
+        acc.push(message)
+      }
+      return acc
+    }, [])
     this.setState({ searchResults })
     setTimeout(() => this.setState({ searchLoading: false }), 1000)
   }
@@ -161,26 +213,38 @@ export class Messages extends Component {
       : ''
   }
 
+  displayTypingUsers = users =>
+    users.length > 0 &&
+    users.map(user => (
+      <div
+        style={{ display: 'flex', alignItems: 'center', marginBottom: '0.2em' }}
+        key={user.id}>
+        <span className="user__typing">{user.name} is typing</span> <Typing />
+      </div>
+    ))
+
   render() {
     const {
+      messagesRef,
       messages,
-      searchLoading,
-      searchTerm,
-      searchResults,
       channel,
       user,
       numUniqueUsers,
+      searchTerm,
+      searchResults,
+      searchLoading,
       privateChannel,
-      isChannelStarred
+      isChannelStarred,
+      typingUsers
     } = this.state
 
     return (
       <React.Fragment>
         <MessagesHeader
           channelName={this.displayChannelName(channel)}
-          searchLoading={searchLoading}
           numUniqueUsers={numUniqueUsers}
           handleSearchChange={this.handleSearchChange}
+          searchLoading={searchLoading}
           isPrivateChannel={privateChannel}
           handleStar={this.handleStar}
           isChannelStarred={isChannelStarred}
@@ -191,13 +255,12 @@ export class Messages extends Component {
             {searchTerm
               ? this.displayMessages(searchResults)
               : this.displayMessages(messages)}
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <span className="user__typing">Bob is typing</span> <Typing />
-            </div>
+            {this.displayTypingUsers(typingUsers)}
           </Comment.Group>
         </Segment>
 
         <MessageForm
+          messagesRef={messagesRef}
           currentChannel={channel}
           currentUser={user}
           isPrivateChannel={privateChannel}
