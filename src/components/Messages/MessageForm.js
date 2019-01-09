@@ -52,6 +52,12 @@ export class MessageForm extends Component {
     })
   }
 
+  handleKeyDown = event => {
+    if (!event.shiftKey && event.keyCode === 13) {
+      this.sendMessage()
+    }
+  }
+
   handleKeyUp = () => {
     const { message, typingRef, channel, user } = this.state
 
@@ -222,6 +228,7 @@ export class MessageForm extends Component {
           name="message"
           value={message}
           onKeyUp={this.handleKeyUp}
+          onKeyDown={this.handleKeyDown}
           onChange={this.handleChange}
           ref={node => (this.messageInputRef = node)}
           style={{ marginBottom: '0.7rem' }}
