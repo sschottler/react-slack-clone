@@ -106,7 +106,7 @@ export class MessageForm extends Component {
 
   getPath = () => {
     if (this.props.isPrivateChannel) {
-      return `chat/private-${this.state.channel.id}`
+      return `chat/private/${this.state.channel.id}`
     } else {
       return 'chat/public'
     }
@@ -115,7 +115,7 @@ export class MessageForm extends Component {
   uploadFile = (file, metadata) => {
     const pathToUpload = this.state.channel.id
     const ref = this.props.getMessagesRef()
-    const filePath = `${this.getPath()}${uuid()}.jpg`
+    const filePath = `${this.getPath()}/${uuid()}.jpg`
 
     this.setState(
       {
@@ -126,9 +126,9 @@ export class MessageForm extends Component {
         this.state.uploadTask.on(
           'state_changed',
           snap => {
-            const percentUploaded =
-              Math.round(snap.bytesTransferred / snap.totalBytes) * 100
-
+            const percentUploaded = Math.round(
+              (snap.bytesTransferred / snap.totalBytes) * 100
+            )
             this.setState({ percentUploaded })
           },
           err => {
