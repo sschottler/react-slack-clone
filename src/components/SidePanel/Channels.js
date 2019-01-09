@@ -224,7 +224,7 @@ class Channels extends React.Component {
         </Menu.Menu>
 
         {/* Add Channel Modal */}
-        <Modal basic open={modal} onClose={this.closeModal}>
+        <Modal open={modal} onClose={this.closeModal}>
           <Modal.Header>Add a Channel</Modal.Header>
           <Modal.Content>
             <Form onSubmit={this.handleSubmit}>
@@ -249,10 +249,10 @@ class Channels extends React.Component {
           </Modal.Content>
 
           <Modal.Actions>
-            <Button color="green" inverted onClick={this.handleSubmit}>
+            <Button color="green" onClick={this.handleSubmit}>
               <Icon name="checkmark" /> Add
             </Button>
-            <Button color="red" inverted onClick={this.closeModal}>
+            <Button color="red" onClick={this.closeModal}>
               <Icon name="remove" /> Cancel
             </Button>
           </Modal.Actions>
