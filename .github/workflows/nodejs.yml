@@ -18,9 +18,7 @@ jobs:
         npm run build --if-present
         
     - name: List Files in Build Directory
-      run: |
-        cd build
-        ls
+      run: cd build && ls
       
     - name: FTP-Deploy-Action
       uses: SamKirkland/FTP-Deploy-Action@2.0.0
