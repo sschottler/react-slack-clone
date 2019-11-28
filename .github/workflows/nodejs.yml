@@ -29,4 +29,4 @@ jobs:
         METHOD: sftp
         PORT: 22
         LOCAL_DIR: build
-        REMOTE_DIR: testremote
+        REMOTE_DIR: julienorcross.com/frontend/testremote
